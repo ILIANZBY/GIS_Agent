@@ -31,20 +31,33 @@ class MultiAgentPlanner:
         self.answer = ''
         self.client=openai.Client(api_key='none', base_url="http://localhost:9876/v1")
    
+    # def llm(self, text):
+    #     try:
+    #         response=self.client.chat.completions.create(
+    #             model="qwen2.5-instruct",
+    #             messages=[{"role": "user", "content": text}],
+    #             max_tokens=8000,
+    #             temperature=0,
+    #             )
+    #         return response.choices[0].message
+    
     def llm(self, text):
         try:
             response=self.client.chat.completions.create(
-                model="qwen2.5-instruct",
+                model="qwen2-vl-instruct",
                 messages=[{"role": "user", "content": text}],
                 max_tokens=8000,
                 temperature=0,
                 )
-            return response.choices[0].message
+            return response.choices[0].message        
             
+    
         except Exception as e:
             print(e)
             
         return response.choices[0].message
+
+
 
 
     def run(self, text, query, reset = True) -> None:
