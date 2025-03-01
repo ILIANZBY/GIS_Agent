@@ -2,4 +2,5 @@
 ![image](https://github.com/user-attachments/assets/dc982164-35ac-4e80-b22e-0c48e59fac15)
 
 效果展示：
-<img width="1025" alt="66902c52d9ac21d8915fa95a7930454" src="https://github.com/user-attachments/assets/6e601a24-5771-4d3f-b8f0-7a5efc0d395c" />
+<img width="1272" alt="2da2808dc424e1094916ab8586b9964" src="https://github.com/user-attachments/assets/cf975c43-8c17-4a53-9363-821551402110" />
+
