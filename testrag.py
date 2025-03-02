@@ -1,6 +1,6 @@
 from document_processor import DocumentProcessor
-doc_processor=DocumentProcessor("/share/home/wuqingyao_zhangboyang/GIS_Agent2/rag_data/13-云安区镇安镇全域土地综合整治试点实施方案.pdf")
-doc_processor.process_pdf()
-relevant_docs = doc_processor.query_database('建筑面积和高度')
+doc_processor=DocumentProcessor("/share/home/wuqingyao_zhangboyang/GIS_Agent2/rag_data/建筑要求.txt")
+doc_processor.process_text()
+relevant_docs = doc_processor.query_database('建筑10属于小型住宅，审核它是否符合建筑要求，并画出它的图像')
 context = "\n".join([doc.page_content for doc in relevant_docs])
 print(context)

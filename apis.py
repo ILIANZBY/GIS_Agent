@@ -5,7 +5,7 @@ from langchain.prompts import PromptTemplate
 from prompts import plan_agent_prompt, act_agent_prompt, summary_agent_prompt
 import openai
 from observation import observate
-
+from document_processor import DocumentProcessor  
 
 
 
@@ -17,7 +17,8 @@ class MultiAgentPlanner:
     def __init__(self,
                  plan_agent_prompt: PromptTemplate = plan_agent_prompt,
                  act_prompt: PromptTemplate = act_agent_prompt,
-                 summary_agent_prompt: PromptTemplate = summary_agent_prompt
+                 summary_agent_prompt: PromptTemplate = summary_agent_prompt,
+                 doc_path: str = None
                  ) -> None:
         
         self.plan_prompt = plan_agent_prompt
@@ -30,7 +31,8 @@ class MultiAgentPlanner:
         self.finished = False
         self.answer = ''
         self.client=openai.Client(api_key='none', base_url="http://localhost:9876/v1")
-   
+        self.doc_processor = None if doc_path is None else DocumentProcessor(doc_path)
+        
     # def llm(self, text):
     #     try:
     #         response=self.client.chat.completions.create(
@@ -47,7 +49,7 @@ class MultiAgentPlanner:
                 model="qwen2-vl-instruct",
                 messages=[{"role": "user", "content": text}],
                 max_tokens=8000,
-                temperature=0,
+                temperature=0.05,
                 )
             return response.choices[0].message        
             
@@ -103,13 +105,13 @@ class MultiAgentPlanner:
     def _build_plan_prompt(self) -> str:
         return self.plan_prompt.format(
                             query = self.query,
-                            text = self.text,
+                            text = "",
                             scratchpad = self.scratchpad)
         
     def _build_action_prompt(self) -> str:
               return self.act_prompt.format(
                             query = self.query,
-                            text = self.text,
+                            text = "",
                             scratchpad = self.scratchpad)  
     
     def _build_summary_prompt(self) -> str:
@@ -131,29 +133,42 @@ class MultiAgentPlanner:
         self.curr_step = 1
         self.finished = False
         
-    def process_query(self, query):
+    def process_query(self, query, doc_content=None):
         """
         处理用户查询的主要函数
         Args:
             query (str): 用户输入的查询文本
+            doc_content (str, optional): 上传文件的内容
         Returns:
             dict: 包含处理结果的字典
         """
         try:
-            # 初始化空的文本（模拟RAG）
-            text = "建筑的面积应该小于300平方，高度应该小于6"
+            # 重置scratchpad
+            self.reset()
+        
+            # 如果提供了文档内容，使用它；否则使用默认的文档处理器
+            if doc_content:
+                text = doc_content
+                self.scratchpad += f"\nRetrieved document content:\n{text}\n"
+            elif self.doc_processor:
+                relevant_docs = self.doc_processor.get_relevant_docs(query)
+                text = "\n".join([doc.page_content for doc in relevant_docs])
+                self.scratchpad += f"\nRetrieved relevant documents:\n{text}\n"
+            else:
+                text = ""
+                self.scratchpad += "\nNo documents available for retrieval.\n"
             
-            # 运行查询处理流程
+        # 运行查询处理流程
             answer, scratchpad = self.run(text=text, query=query)
-            
+        
             return scratchpad
 
         except Exception as e:
             return {
                 "status": "error",
-                "error": str(e),
-                "query": query
-            }   
+            "error": str(e),
+            "query": query
+            }
 
 def format_step(step: str) -> str:
     return step.strip('\n').strip().replace('\n', '')
