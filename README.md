@@ -30,11 +30,14 @@ gis端环境配置
 conda env create -f environment.yml
 ```
 
+## 部署启动
+
 推理端启动
 ```shell
 xinference-local --host 0.0.0.0 --port 9876
 ```
-然后再webui上launch模型qwen2-vl-instruct
+然后在webui上launch模型qwen2-vl-instruct
+
 
 
 启动webui
