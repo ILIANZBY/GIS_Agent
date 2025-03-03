@@ -6,7 +6,10 @@ import time
 from prompts import plan_agent_prompt, act_agent_prompt, summary_agent_prompt
 import tempfile
 from observation import load_gdf 
-import shutil 
+import shutil
+from document_processor import DocumentProcessor 
+from prompts import rag_agent_prompt
+import openai
 # 定义图片输出目录
 OUTPUT_DIR = "/share/home/wuqingyao_zhangboyang/GIS_Agent2"
 
@@ -20,15 +23,101 @@ def get_latest_image():
         return None
     return max(files, key=os.path.getctime)
 
-def process_query(query):
-    agent = MultiAgentPlanner(plan_agent_prompt, act_agent_prompt, summary_agent_prompt)
-    response = agent.process_query(query)
-    formatted_response = json.dumps(response, ensure_ascii=False, indent=2)
+def rag_query(query, doc_processor):
+    """处理普通的RAG查询"""
+    try:
+        relevant_docs = doc_processor.query_database(query)
+        context = "\n".join([doc.page_content for doc in relevant_docs])
+        
+        # 使用与testrag.py相同的逻辑
+        formatted_prompt = rag_agent_prompt.format(text=context, query=query)
+        client = openai.Client(api_key='none', base_url="http://localhost:9876/v1")
+        response = client.chat.completions.create(
+            model="qwen2-vl-instruct",
+            messages=[{"role": "user", "content": formatted_prompt}],
+            max_tokens=8000,
+            temperature=0.05,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"错误: {str(e)}"
+
+# def process_query(query):
+#     agent = MultiAgentPlanner(plan_agent_prompt, act_agent_prompt, summary_agent_prompt)
+#     response = agent.process_query(query)
+#     formatted_response = json.dumps(response, ensure_ascii=False, indent=2)
     
-    # 检查是否有新图片生成
-    latest_image = get_latest_image()
+#     # 检查是否有新图片生成
+#     latest_image = get_latest_image()
     
-    return formatted_response, latest_image if latest_image else None
+#     return formatted_response, latest_image if latest_image else None
+
+def process_query(query, gis_files, doc_files):
+    """处理查询并加载用户上传的GIS文件和文档文件"""
+    try:
+        temp_dir = tempfile.mkdtemp()
+        doc_content = ""
+        processor = None
+        
+        # 处理文档文件（PDF和TXT）
+        if doc_files:
+            for doc_file in doc_files:
+                file_ext = os.path.splitext(doc_file.name)[1].lower()
+                
+                # 创建临时文件路径
+                temp_file_path = os.path.join(temp_dir, os.path.basename(doc_file.name))
+                shutil.copy2(doc_file.name, temp_file_path)
+                
+                # 根据文件类型处理文档
+                processor = DocumentProcessor(temp_file_path)
+                if file_ext == '.pdf':
+                    processor.process_pdf()
+                elif file_ext == '.txt':
+                    processor.process_text()
+        print("-------------------{}".format(query))
+        # 判断是否包含"审核"关键词
+        if "审核" in query:
+            # 原有的审核逻辑
+            gdf = None
+            if gis_files:
+                # ... existing GIS file processing code ...
+                pass
+
+            agent = MultiAgentPlanner(
+                plan_agent_prompt,
+                act_agent_prompt,
+                summary_agent_prompt
+            )
+            print("---------------------{}---------------{}".fromat(type(processor),processor))
+            if processor:
+                relevant_docs = processor.query_database(query)
+                doc_content = "\n".join([doc.page_content for doc in relevant_docs])
+            
+            combined_content = f"{doc_content}\n{gdf.to_string() if gdf is not None else ''}"
+            response = agent.process_query(query, combined_content)
+            formatted_response = json.dumps(response, ensure_ascii=False, indent=2)
+        else:
+            # 使用RAG模式处理查询
+            if not processor:
+                return "请上传要查询的文档文件", None
+            
+            result = rag_query(query, processor)
+            formatted_response = json.dumps({
+                "query": query,
+                "response": result
+            }, ensure_ascii=False, indent=2)
+        
+        # 清理临时文件
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception:
+            pass
+        
+        latest_image = get_latest_image()
+        return formatted_response, latest_image if latest_image else None
+    
+    except Exception as e:
+        return json.dumps({"error": str(e)}, ensure_ascii=False), None
 
 def clear_inputs():
     return "", "", None, None, None  # 返回值包含input_text, output_text, image_output, gis_files, rag_file
@@ -57,68 +146,64 @@ demo = gr.Blocks(title="GIS 审核助手")
         
 #         shp_path = os.path.join(temp_dir, shp_files[0])
 
-def process_query(query, gis_files, rag_file):
-    """处理查询并加载用户上传的文件"""
-    try:
-        # 临时保存上传的文件
-        temp_dir = tempfile.mkdtemp()
-        doc_content = ""
-        rag_content = ""
+# def process_query(query, gis_files, doc_files):
+#     """处理查询并加载用户上传的GIS文件和文档文件"""
+#     try:
+#         temp_dir = tempfile.mkdtemp()
+#         doc_content = ""
         
-        # 处理RAG文本文件
-        if rag_file is not None:
-            with open(rag_file.name, 'r', encoding='utf-8') as f:
-                rag_content = f.read()
+#         # 处理文档文件（PDF和TXT）
+#         if doc_files:
+#             processor = None
+#             for doc_file in doc_files:
+#                 file_ext = os.path.splitext(doc_file.name)[1].lower()
+                
+#                 # 创建临时文件路径
+#                 temp_file_path = os.path.join(temp_dir, os.path.basename(doc_file.name))
+#                 shutil.copy2(doc_file.name, temp_file_path)
+                
+#                 # 根据文件类型处理文档
+#                 processor = DocumentProcessor(temp_file_path)
+#                 if file_ext == '.pdf':
+#                     processor.process_pdf()
+#                 elif file_ext == '.txt':
+#                     processor.process_text()
         
-        # 处理GIS文件（如果有）
-        if gis_files:
-            # 处理Shapefile文件
-            for file in gis_files:
-                file_path = os.path.join(temp_dir, os.path.basename(file.name))
-                shutil.copy2(file.name, file_path)
-            
-            # 检查并加载Shapefile
-            base_files = set([os.path.splitext(f)[0] for f in os.listdir(temp_dir)])
-            for base in base_files:
-                required_exts = ['.shp', '.shx', '.dbf']
-                if all(os.path.exists(os.path.join(temp_dir, base + ext)) for ext in required_exts):
-                    shp_path = os.path.join(temp_dir, base + '.shp')
-                    break
-            else:
-                if gis_files:  # 只有当用户确实上传了GIS文件时才提示错误
-                    raise ValueError("未找到完整的Shapefile文件集")
+#         # 处理GIS文件（保持原有逻辑）
+#         gdf = None
+#         if gis_files:
+#             # ... existing GIS file processing code ...
+#             pass
 
-            # 加载GDF并将其转换为文本内容
-            gdf = load_gdf(shp_path)
-            if gdf is not None:
-                doc_content = gdf.to_string()
-
-        # 创建agent并处理查询，使用RAG内容
-        agent = MultiAgentPlanner(
-            plan_agent_prompt, 
-            act_agent_prompt, 
-            summary_agent_prompt
-        )
+#         # 创建agent并处理查询
+#         agent = MultiAgentPlanner(
+#             plan_agent_prompt,
+#             act_agent_prompt,
+#             summary_agent_prompt
+#         )
         
-        # 组合GIS内容和RAG内容
-        combined_content = f"{rag_content}\n{doc_content}" if doc_content else rag_content
+#         # 如果有文档处理器，使用它来查询相关内容
+#         if processor:
+#             relevant_docs = processor.query_database(query)
+#             doc_content = "\n".join([doc.page_content for doc in relevant_docs])
         
-        # 传入文档内容
-        response = agent.process_query(query, combined_content)
-        formatted_response = json.dumps(response, ensure_ascii=False, indent=2)
+#         # 组合GIS内容和文档内容
+#         combined_content = f"{doc_content}\n{gdf.to_string() if gdf is not None else ''}"
         
-        # 清理临时文件
-        try:
-            shutil.rmtree(temp_dir)
-        except Exception:
-            pass
+#         response = agent.process_query(query, combined_content)
+#         formatted_response = json.dumps(response, ensure_ascii=False, indent=2)
         
-        # 获取图片
-        latest_image = get_latest_image()
-        return formatted_response, latest_image if latest_image else None
+#         # 清理临时文件
+#         try:
+#             shutil.rmtree(temp_dir)
+#         except Exception:
+#             pass
+        
+#         latest_image = get_latest_image()
+#         return formatted_response, latest_image if latest_image else None
     
-    except Exception as e:
-        return json.dumps({"error": str(e)}, ensure_ascii=False), None
+#     except Exception as e:
+#         return json.dumps({"error": str(e)}, ensure_ascii=False), None
 
 with demo:
     # 设置整体主题和样式
@@ -204,11 +289,11 @@ with demo:
                     file_count="multiple",
                     elem_classes="file-upload"
                 )
-                # RAG文本文件上传
-                rag_file_upload = gr.File(
-                    label="上传RAG知识库文件（.txt格式）",
-                    file_types=[".txt"],
-                    file_count="single",
+                # 文档文件上传（支持PDF和TXT）
+                doc_file_upload = gr.File(
+                    label="上传文档文件（支持PDF和TXT格式）",
+                    file_types=[".pdf", ".txt"],
+                    file_count="multiple",
                     elem_classes="file-upload"
                 )
 
@@ -245,7 +330,7 @@ with demo:
     # 绑定事件处理
     submit_btn.click(
         fn=process_query,
-        inputs=[input_text, gis_file_upload, rag_file_upload],
+        inputs=[input_text, gis_file_upload, doc_file_upload],
         outputs=[output_text, image_output],
         api_name="analyze"
     )

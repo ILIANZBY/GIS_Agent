@@ -48,6 +48,15 @@ Query: {query}{scratchpad}
 Summary:
 """
 
+RAG="""你的名字是GeoMind，你是一个地理信息系统的专家。你需要根据提供的信息，回答问题。
+相关信息: {text}
+用户提问: {query}
+你需要根据已知信息，简洁和专业的来回答问题。如果无法从中得到答案，请说 “根据已知信息无法回答该问题”，不允许在答案中添加编造成分，答案请使用中文。
+"""
+
+
+
+
 SUM2="""你是一个土地规划的总结者，你需要根据前面的子任务以及子任务的完成结果来做出总结，给出最后的审核结果和建议。
 如果前面做出的计划不合理或者有行动没有完成，你需要继续制定计划，指导行动。
 ***** Example *****
@@ -77,4 +86,8 @@ act_agent_prompt = PromptTemplate(
 summary_agent_prompt = PromptTemplate(
                         input_variables=["text","query", "scratchpad"],
                         template = SUM,
+                        )
+rag_agent_prompt=PromptTemplate(
+                        input_variables=["text","query"],
+                        template = RAG,
                         )

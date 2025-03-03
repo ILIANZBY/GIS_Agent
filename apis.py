@@ -11,14 +11,10 @@ from document_processor import DocumentProcessor
 
 
 class MultiAgentPlanner:
-    """
-    A question answering ReAct Agent.
-    """
     def __init__(self,
                  plan_agent_prompt: PromptTemplate = plan_agent_prompt,
                  act_prompt: PromptTemplate = act_agent_prompt,
                  summary_agent_prompt: PromptTemplate = summary_agent_prompt,
-                 doc_path: str = None
                  ) -> None:
         
         self.plan_prompt = plan_agent_prompt
@@ -30,8 +26,7 @@ class MultiAgentPlanner:
         self.reset()
         self.finished = False
         self.answer = ''
-        self.client=openai.Client(api_key='none', base_url="http://localhost:9876/v1")
-        self.doc_processor = None if doc_path is None else DocumentProcessor(doc_path)
+        self.client = openai.Client(api_key='none', base_url="http://localhost:9876/v1")
         
     # def llm(self, text):
     #     try:
@@ -136,38 +131,21 @@ class MultiAgentPlanner:
     def process_query(self, query, doc_content=None):
         """
         处理用户查询的主要函数
-        Args:
-            query (str): 用户输入的查询文本
-            doc_content (str, optional): 上传文件的内容
-        Returns:
-            dict: 包含处理结果的字典
         """
         try:
-            # 重置scratchpad
             self.reset()
-        
-            # 如果提供了文档内容，使用它；否则使用默认的文档处理器
-            if doc_content:
-                text = doc_content
-                self.scratchpad += f"\nRetrieved document content:\n{text}\n"
-            elif self.doc_processor:
-                relevant_docs = self.doc_processor.get_relevant_docs(query)
-                text = "\n".join([doc.page_content for doc in relevant_docs])
-                self.scratchpad += f"\nRetrieved relevant documents:\n{text}\n"
-            else:
-                text = ""
-                self.scratchpad += "\nNo documents available for retrieval.\n"
             
-        # 运行查询处理流程
+
+            text = doc_content
+            
             answer, scratchpad = self.run(text=text, query=query)
-        
             return scratchpad
 
         except Exception as e:
             return {
                 "status": "error",
-            "error": str(e),
-            "query": query
+                "error": str(e),
+                "query": query
             }
 
 def format_step(step: str) -> str:

@@ -1,4 +1,4 @@
-from langchain_community.document_loaders import PyPDFLoader,TextLoader
+from langchain_community.document_loaders import PyPDFLoader,TextLoader,UnstructuredPDFLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -16,13 +16,13 @@ class DocumentProcessor:
         
     def process_pdf(self):
         # 加载 PDF
-        loader = PyPDFLoader(self.file_path)
+        loader = UnstructuredPDFLoader(self.file_path)
         documents = loader.load()
         
         # 分割文本
         text_splitter = CharacterTextSplitter(
-            chunk_size=200,
-            chunk_overlap=50,
+            chunk_size=750,
+            chunk_overlap=150,
             separator="\n"
         )
         texts = text_splitter.split_documents(documents)
@@ -40,7 +40,7 @@ class DocumentProcessor:
         
         # 分割文本
         text_splitter = CharacterTextSplitter(
-            chunk_size=50,
+            chunk_size=200,
             chunk_overlap=10,
             separator="\n"
         )
