@@ -55,7 +55,4 @@ python webui.py
 
 
 
-## Future Job
-扩充工具，创建规则和工具双数据库的RAG检索
 
-#
