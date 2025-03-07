@@ -46,3 +46,16 @@ xinference-local --host 0.0.0.0 --port 9876
 ```shell
 python webui.py
 ```
+
+## Future Job
+
+扩充Agent工具，构建规则和工具的双数据库进行RAG检索
+
+![image](https://github.com/user-attachments/assets/463a3f31-ef48-4bea-a871-efddb084ae66)
+
+
+
+## Future Job
+扩充工具，创建规则和工具双数据库的RAG检索
+
+#
